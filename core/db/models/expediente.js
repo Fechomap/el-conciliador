@@ -7,7 +7,6 @@ const expedienteSchema = new mongoose.Schema({
   numeroExpediente: {
     type: String,
     required: true,
-    unique: true,
     trim: true,
     index: true
   },
@@ -27,6 +26,7 @@ const expedienteSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
+    numeroLinea: Number,
     fechaPedido: Date,
     precio: Number,
     estatus: {
@@ -50,13 +50,42 @@ const expedienteSchema = new mongoose.Schema({
       default: Date.now
     },
     fuenteDatos: String,
-    version: String
+    version: String,
+    estadoGeneral: {
+      type: String,
+      enum: ['PENDIENTE', 'COMPLETO', 'PARCIAL'],
+      default: 'PENDIENTE'
+    },
+    facturado: {
+      type: Boolean,
+      default: false
+    },
+    esDuplicado: {
+      type: Boolean,
+      default: false
+    },
+    esUnico: {
+      type: Boolean,
+      default: true
+    },
+    razonDuplicado: String,
+    procesadoPorConcentrador: {
+      type: Boolean,
+      default: false
+    },
+    ultimaActualizacionConcentrador: Date
   }
 }, { timestamps: true });
 
-// Indexar para búsquedas rápidas por expediente
-expedienteSchema.index({ numeroExpediente: 1 });
-expedienteSchema.index({ cliente: 1, numeroExpediente: 1 });
+// Índice compuesto para numeroExpediente y cliente (para evitar duplicados exactos)
+expedienteSchema.index({ numeroExpediente: 1, cliente: 1 }, { unique: true });
+
+// Otros índices para optimizar consultas
+expedienteSchema.index({ 'pedidos.numeroPedido': 1 });
+expedienteSchema.index({ 'facturas.numeroFactura': 1 });
+expedienteSchema.index({ 'metadatos.ultimaActualizacion': -1 });
+expedienteSchema.index({ 'metadatos.esDuplicado': 1 });
+expedienteSchema.index({ 'metadatos.esUnico': 1 });
 
 const Expediente = mongoose.model('Expediente', expedienteSchema);
 
