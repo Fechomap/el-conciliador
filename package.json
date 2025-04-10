@@ -12,8 +12,14 @@
     "test:concentrador": "node scripts/test_concentrador.js",
     "test:concentrador:basic": "node scripts/test_concentrador_basic.js",
     "test:concentrador:full": "node scripts/test_concentrador_full.js",
-    "test:normalizers": "jest core/concentrador/tests/normalizers.test.js",
-    "test:mongodb": "python scripts/test_mongodb_connection.py"
+    "test:api": "node scripts/test_api.js",
+    "test:integration": "node scripts/test_integration.js",
+    "test:mongodb": "python scripts/test_mongodb_connection.py",
+    "import:excel": "node modules/ike-processor/scripts/excel_mongodb_sync.js import",
+    "export:excel": "node modules/ike-processor/scripts/excel_mongodb_sync.js export",
+    "compare:excel": "node modules/ike-processor/scripts/excel_mongodb_sync.js compare",
+    "sync:excel": "node modules/ike-processor/scripts/excel_mongodb_sync.js sync",
+    "install:deps": "npm install && pip install -r requirements.txt"
   },
   "repository": {
     "type": "git",
@@ -37,7 +43,8 @@
     "helmet": "^6.2.0",
     "mongoose": "^7.8.6",
     "morgan": "^1.10.0",
-    "python-shell": "^5.0.0"
+    "python-shell": "^5.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "jest": "^29.5.0",
