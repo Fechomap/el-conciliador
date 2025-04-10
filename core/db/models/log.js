@@ -1,7 +1,7 @@
 /**
  * Modelo de Log para MongoDB
  */
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const logSchema = new mongoose.Schema({
   timestamp: {
@@ -37,4 +37,5 @@ logSchema.index({ cliente: 1, timestamp: -1 });
 
 const Log = mongoose.model('Log', logSchema);
 
-module.exports = Log;
+// Exportar como named export
+export { Log };

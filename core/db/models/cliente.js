@@ -1,7 +1,7 @@
 /**
  * Modelo de Cliente para MongoDB
  */
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const clienteSchema = new mongoose.Schema({
   codigo: {
@@ -31,4 +31,5 @@ const clienteSchema = new mongoose.Schema({
 
 const Cliente = mongoose.model('Cliente', clienteSchema);
 
-module.exports = Cliente;
+// Exportar como named export
+export { Cliente };

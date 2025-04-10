@@ -1,7 +1,10 @@
 /**
  * Configuración de conexión a MongoDB
  */
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 const { MONGODB_URI, MONGODB_DB_NAME } = process.env;
 
 // Opciones de conexión
@@ -11,7 +14,7 @@ const options = {
 };
 
 // Función para conectar a MongoDB
-async function connectToDatabase() {
+export async function connectToDatabase() {
   try {
     await mongoose.connect(MONGODB_URI, options);
     console.log(`Conectado a MongoDB: ${MONGODB_DB_NAME}`);
@@ -39,7 +42,4 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-module.exports = {
-  connectToDatabase,
-  connection: mongoose.connection
-};
+export { mongoose };

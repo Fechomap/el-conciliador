@@ -60,5 +60,4 @@ expedienteSchema.index({ cliente: 1, numeroExpediente: 1 });
 
 const Expediente = mongoose.model('Expediente', expedienteSchema);
 
-// Exportar como default export
 export default Expediente;

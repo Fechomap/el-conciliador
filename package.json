@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "el-conciliador",
   "version": "1.0.0",
   "description": "Sistema integrado para procesamiento de expedientes y consolidación de información documental",
@@ -7,7 +8,12 @@
     "setup": "node scripts/setup.js",
     "dev": "node scripts/dev.js",
     "deploy": "node scripts/deploy.js",
-    "heroku-postbuild": "cd web/client && npm install && npm run build"
+    "heroku-postbuild": "cd web/client && npm install && npm run build",
+    "test:concentrador": "node scripts/test_concentrador.js",
+    "test:concentrador:basic": "node scripts/test_concentrador_basic.js",
+    "test:concentrador:full": "node scripts/test_concentrador_full.js",
+    "test:normalizers": "jest core/concentrador/tests/normalizers.test.js",
+    "test:mongodb": "python scripts/test_mongodb_connection.py"
   },
   "repository": {
     "type": "git",
@@ -41,5 +47,11 @@
   "engines": {
     "node": ">=14.0.0",
     "npm": ">=7.0.0"
+  },
+  "jest": {
+    "transform": {
+      "^.+\\.jsx?$": "babel-jest"
+    },
+    "testEnvironment": "node"
   }
 }
