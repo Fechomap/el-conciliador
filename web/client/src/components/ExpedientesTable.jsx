@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ChevronLeft, ChevronRight, RefreshCw, Filter, User, FileText, Calendar, Tag } from 'lucide-react';
+import { expedientesService } from '../services/api';
 
 const ExpedientesTable = () => {
   // Estado para los datos
@@ -31,113 +32,29 @@ const ExpedientesTable = () => {
   const fetchExpedientes = async () => {
     setLoading(true);
     try {
-      // Construir URL con parámetros de paginación y filtros
-      let url = `/api/expedientes?page=${pagination.page}&limit=${pagination.limit}`;
-      
-      // Añadir filtros a la URL si están definidos
-      if (filters.cliente) url += `&cliente=${filters.cliente}`;
-      if (filters.tipoServicio) url += `&tipoServicio=${filters.tipoServicio}`;
-      if (filters.estadoGeneral) url += `&estadoGeneral=${filters.estadoGeneral}`;
-      
-      // Simular respuesta de la API para desarrollo
-      // En producción, se reemplazaría por un fetch real a la API
-      setTimeout(() => {
-        // Datos de ejemplo
-        const response = {
-          success: true,
-          data: [
-            {
-              _id: '1',
-              numeroExpediente: '12345678',
-              cliente: 'IKE',
-              datos: {
-                fechaCreacion: '2024-04-01',
-                tipoServicio: 'ARRASTRE'
-              },
-              metadatos: {
-                estadoGeneral: 'COMPLETO',
-                facturado: true,
-                ultimaActualizacion: '2024-04-08'
-              }
-            },
-            {
-              _id: '2',
-              numeroExpediente: '87654321',
-              cliente: 'DEMO',
-              datos: {
-                fechaCreacion: '2024-03-15',
-                tipoServicio: 'GRUA'
-              },
-              metadatos: {
-                estadoGeneral: 'PENDIENTE',
-                facturado: false,
-                ultimaActualizacion: '2024-03-20'
-              }
-            },
-            {
-              _id: '3',
-              numeroExpediente: '11223344',
-              cliente: 'IKE',
-              datos: {
-                fechaCreacion: '2024-03-28',
-                tipoServicio: 'SALVAMENTO'
-              },
-              metadatos: {
-                estadoGeneral: 'PARCIAL',
-                facturado: true,
-                ultimaActualizacion: '2024-04-05'
-              }
-            },
-            {
-              _id: '4',
-              numeroExpediente: '55667788',
-              cliente: 'DEMO',
-              datos: {
-                fechaCreacion: '2024-02-10',
-                tipoServicio: 'TRASLADO'
-              },
-              metadatos: {
-                estadoGeneral: 'COMPLETO',
-                facturado: true,
-                ultimaActualizacion: '2024-03-01'
-              }
-            },
-            {
-              _id: '5',
-              numeroExpediente: '99887766',
-              cliente: 'IKE',
-              datos: {
-                fechaCreacion: '2024-01-20',
-                tipoServicio: 'ARRASTRE'
-              },
-              metadatos: {
-                estadoGeneral: 'PENDIENTE',
-                facturado: false,
-                ultimaActualizacion: '2024-02-15'
-              }
-            }
-          ],
-          pagination: {
-            page: pagination.page,
-            limit: pagination.limit,
-            totalPages: 10,
-            total: 48
-          }
-        };
-        
+      const response = await expedientesService.getExpedientes({
+        page: pagination.page,
+        limit: pagination.limit,
+        cliente: filters.cliente,
+        tipoServicio: filters.tipoServicio,
+        estadoGeneral: filters.estadoGeneral
+      });
+
+      if (response.success) {
         setExpedientes(response.data);
         setPagination({
           ...pagination,
           totalPages: response.pagination.totalPages,
           total: response.pagination.total
         });
-        setLoading(false);
-      }, 500);
-      
+      } else {
+        setError(response.message || 'Error al cargar los datos');
+      }
     } catch (err) {
-      setError('Error al cargar los expedientes');
-      setLoading(false);
+      setError('Error de conexión al servidor. Intente nuevamente.');
       console.error('Error fetching expedientes:', err);
+    } finally {
+      setLoading(false);
     }
   };
   

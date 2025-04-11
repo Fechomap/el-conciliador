@@ -7,6 +7,7 @@ import morgan from 'morgan';
 import helmet from 'helmet';
 import { connectToDatabase } from '../db/connection.js';
 import { notFoundHandler, errorHandler } from './middleware/error-handlers.js';
+import expedientesRoutes from './routes/expedientes.routes.js'; // Importar rutas de expedientes
 
 // Crear aplicación Express
 const app = express();
@@ -26,6 +27,9 @@ app.get('/api', (req, res) => {
     status: 'running'
   });
 });
+
+// Rutas de expedientes
+app.use('/api/expedientes', expedientesRoutes); // Middleware para rutas de expedientes
 
 // Middleware de manejo de errores
 app.use(notFoundHandler);

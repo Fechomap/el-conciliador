@@ -8,90 +8,79 @@ import { validateObjectId, validateQueryParams } from '../../../../core/api/midd
 const router = express.Router();
 
 /**
- * @route   GET /api/expedientes
- * @desc    Obtener todos los expedientes (versión pública)
+ * @route   GET /api/expedientes/estadisticas
+ * @desc    Obtener estadísticas generales de expedientes
  * @access  Public
  */
-router.get('/', async (req, res, next) => {
+router.get('/estadisticas', async (req, res, next) => {
   try {
-    // Parámetros de paginación y filtros
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 25;
-    const skip = (page - 1) * limit;
     const cliente = req.query.cliente;
-    const tipoServicio = req.query.tipoServicio;
-    const facturado = req.query.facturado === 'true';
     
-    // Construir filtro básico
-    const filter = {
-      // Solo mostrar expedientes principales (no duplicados)
-      'metadatos.esDuplicado': { $ne: true }
-    };
+    // Filtro base
+    const filter = {};
+    if (cliente) filter.cliente = cliente.toUpperCase();
     
-    // Aplicar filtros adicionales
-    if (cliente) filter.cliente = cliente;
-    if (tipoServicio) filter['datos.tipoServicio'] = tipoServicio;
-    if (req.query.facturado !== undefined) {
-      filter['metadatos.facturado'] = facturado;
-    }
-    
-    // Ejecutar consulta optimizada
-    const [expedientes, total] = await Promise.all([
-      Expediente.find(filter)
-        .select({
-          _id: 1,
-          numeroExpediente: 1,
-          cliente: 1,
-          'datos.fechaCreacion': 1,
-          'datos.tipoServicio': 1,
-          'metadatos.facturado': 1,
-          'metadatos.estadoGeneral': 1,
-          'metadatos.ultimaActualizacion': 1
-        })
-        .sort({ 'metadatos.ultimaActualizacion': -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Expediente.countDocuments(filter)
+    // Obtener conteos generales
+    const [totalExpedientes, totalFacturados, totalPendientes] = await Promise.all([
+      Expediente.countDocuments(filter),
+      Expediente.countDocuments({ ...filter, 'metadatos.facturado': true }),
+      Expediente.countDocuments({ ...filter, 'metadatos.facturado': false })
     ]);
     
-    // Preparar respuesta
-    res.json({
-      success: true,
-      count: expedientes.length,
-      total,
-      pagination: {
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-        hasMore: skip + expedientes.length < total
-      },
-      data: expedientes
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * @route   GET /api/expedientes/:id
- * @desc    Obtener detalles de un expediente
- * @access  Public
- */
-router.get('/:id', async (req, res, next) => {
-  try {
-    const expediente = await Expediente.findById(req.params.id).lean();
+    // Obtener estadísticas por tipo de servicio
+    const tiposServicio = await Expediente.aggregate([
+      { $match: filter },
+      { $group: {
+        _id: '$datos.tipoServicio',
+        count: { $sum: 1 }
+      }},
+      { $sort: { count: -1 } }
+    ]);
     
-    if (!expediente) {
-      return res.status(404).json({
-        success: false,
-        message: 'Expediente no encontrado'
-      });
+    // Obtener estadísticas por cliente (si no se filtró por cliente)
+    let clientesStats = [];
+    if (!cliente) {
+      clientesStats = await Expediente.aggregate([
+        { $group: {
+          _id: '$cliente',
+          count: { $sum: 1 },
+          facturados: {
+            $sum: { 
+              $cond: [{ $eq: ['$metadatos.facturado', true] }, 1, 0] 
+            }
+          },
+          pendientes: {
+            $sum: { 
+              $cond: [{ $eq: ['$metadatos.facturado', false] }, 1, 0] 
+            }
+          }
+        }},
+        { $sort: { count: -1 } }
+      ]);
     }
     
+    // Estructurar respuesta
+    const estadisticas = {
+      totales: {
+        expedientes: totalExpedientes,
+        facturados: totalFacturados,
+        pendientes: totalPendientes
+      },
+      tiposServicio: tiposServicio.reduce((acc, tipo) => {
+        acc[tipo._id || 'SIN_TIPO'] = tipo.count;
+        return acc;
+      }, {}),
+      clientes: clientesStats.map(c => ({
+        cliente: c._id,
+        total: c.count,
+        facturados: c.facturados,
+        pendientes: c.pendientes
+      }))
+    };
+    
     res.json({
       success: true,
-      data: expediente
+      data: estadisticas
     });
   } catch (error) {
     next(error);
@@ -198,83 +187,95 @@ router.get('/numero/:numeroExpediente', async (req, res, next) => {
 });
 
 /**
- * @route   GET /api/expedientes/estadisticas
- * @desc    Obtener estadísticas generales de expedientes
+ * @route   GET /api/expedientes/:id
+ * @desc    Obtener detalles de un expediente
  * @access  Public
  */
-router.get('/estadisticas', async (req, res, next) => {
+router.get('/:id', async (req, res, next) => {
   try {
-    const cliente = req.query.cliente;
+    const expediente = await Expediente.findById(req.params.id).lean();
     
-    // Filtro base
-    const filter = {};
-    if (cliente) filter.cliente = cliente.toUpperCase();
-    
-    // Obtener conteos generales
-    const [totalExpedientes, totalFacturados, totalPendientes] = await Promise.all([
-      Expediente.countDocuments(filter),
-      Expediente.countDocuments({ ...filter, 'metadatos.facturado': true }),
-      Expediente.countDocuments({ ...filter, 'metadatos.facturado': false })
-    ]);
-    
-    // Obtener estadísticas por tipo de servicio
-    const tiposServicio = await Expediente.aggregate([
-      { $match: filter },
-      { $group: {
-        _id: '$datos.tipoServicio',
-        count: { $sum: 1 }
-      }},
-      { $sort: { count: -1 } }
-    ]);
-    
-    // Obtener estadísticas por cliente (si no se filtró por cliente)
-    let clientesStats = [];
-    if (!cliente) {
-      clientesStats = await Expediente.aggregate([
-        { $group: {
-          _id: '$cliente',
-          count: { $sum: 1 },
-          facturados: {
-            $sum: { 
-              $cond: [{ $eq: ['$metadatos.facturado', true] }, 1, 0] 
-            }
-          },
-          pendientes: {
-            $sum: { 
-              $cond: [{ $eq: ['$metadatos.facturado', false] }, 1, 0] 
-            }
-          }
-        }},
-        { $sort: { count: -1 } }
-      ]);
+    if (!expediente) {
+      return res.status(404).json({
+        success: false,
+        message: 'Expediente no encontrado'
+      });
     }
-    
-    // Estructurar respuesta
-    const estadisticas = {
-      totales: {
-        expedientes: totalExpedientes,
-        facturados: totalFacturados,
-        pendientes: totalPendientes
-      },
-      tiposServicio: tiposServicio.reduce((acc, tipo) => {
-        acc[tipo._id || 'SIN_TIPO'] = tipo.count;
-        return acc;
-      }, {}),
-      clientes: clientesStats.map(c => ({
-        cliente: c._id,
-        total: c.count,
-        facturados: c.facturados,
-        pendientes: c.pendientes
-      }))
-    };
     
     res.json({
       success: true,
-      data: estadisticas
+      data: expediente
     });
   } catch (error) {
     next(error);
   }
 });
+
+/**
+ * @route   GET /api/expedientes
+ * @desc    Obtener todos los expedientes (versión pública)
+ * @access  Public
+ */
+router.get('/', async (req, res, next) => {
+  try {
+    // Parámetros de paginación y filtros
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 25;
+    const skip = (page - 1) * limit;
+    const cliente = req.query.cliente;
+    const tipoServicio = req.query.tipoServicio;
+    const facturado = req.query.facturado === 'true';
+    
+    // Construir filtro básico
+    const filter = {
+      // Solo mostrar expedientes principales (no duplicados)
+      'metadatos.esDuplicado': { $ne: true }
+    };
+    
+    // Aplicar filtros adicionales
+    if (cliente) filter.cliente = cliente;
+    if (tipoServicio) filter['datos.tipoServicio'] = tipoServicio;
+    if (req.query.facturado !== undefined) {
+      filter['metadatos.facturado'] = facturado;
+    }
+    
+    // Ejecutar consulta optimizada
+    const [expedientes, total] = await Promise.all([
+      Expediente.find(filter)
+        .select({
+          _id: 1,
+          numeroExpediente: 1,
+          cliente: 1,
+          'datos.fechaCreacion': 1,
+          'datos.tipoServicio': 1,
+          'metadatos.facturado': 1,
+          'metadatos.estadoGeneral': 1,
+          'metadatos.ultimaActualizacion': 1
+        })
+        .sort({ 'metadatos.ultimaActualizacion': -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Expediente.countDocuments(filter)
+    ]);
+    
+    // Preparar respuesta
+    res.json({
+      success: true,
+      count: expedientes.length,
+      total,
+      pagination: {
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasMore: skip + expedientes.length < total
+      },
+      data: expedientes
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 
 export default router;

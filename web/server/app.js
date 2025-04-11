@@ -3,6 +3,7 @@
  */
 import express from 'express';
 import path from 'path';
+import cors from 'cors';
 import * as dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { connectToDatabase } from '../../core/db/connection.js';
@@ -21,6 +22,9 @@ const PORT = process.env.PORT || 3000;
 
 // Conectar a MongoDB
 connectToDatabase();
+
+// Habilitar CORS para permitir peticiones desde el frontend
+app.use(cors());
 
 // Middleware para parsear JSON
 app.use(express.json());

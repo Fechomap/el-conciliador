@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, FileText, Truck, Calendar, DollarSign, ClipboardList, Tag, User, Package, Clock, RefreshCw } from 'lucide-react';
+import { expedientesService } from '../services/api';
 
 const ExpedienteDetail = ({ expedienteId, onBack }) => {
   const [expediente, setExpediente] = useState(null);
@@ -14,64 +15,21 @@ const ExpedienteDetail = ({ expedienteId, onBack }) => {
 
   const fetchExpedienteDetail = async (id) => {
     setLoading(true);
+    setError(null);
+    
     try {
-      // Simular carga de datos desde la API
-      setTimeout(() => {
-        const mockExpediente = {
-          _id: id,
-          numeroExpediente: "12345678",
-          cliente: "IKE",
-          datos: {
-            fechaCreacion: "2024-04-01",
-            tipoServicio: "ARRASTRE",
-            descripcion: "Servicio de arrastre para vehículo en carretera federal"
-          },
-          pedidos: [
-            {
-              numeroPedido: "1234567890",
-              numeroLinea: 1,
-              fechaPedido: "2024-04-02",
-              precio: 1500.00,
-              estatus: "FACTURADO",
-              factura: "F001"
-            },
-            {
-              numeroPedido: "1234567891",
-              numeroLinea: 2,
-              fechaPedido: "2024-04-03",
-              precio: 300.00,
-              estatus: "FACTURADO",
-              factura: "F001"
-            }
-          ],
-          facturas: [
-            {
-              numeroFactura: "F001",
-              fechaFactura: "2024-04-05",
-              monto: 1800.00
-            }
-          ],
-          metadatos: {
-            ultimaActualizacion: "2024-04-08",
-            fuenteDatos: "extract.py",
-            version: "1.0.0",
-            estadoGeneral: "COMPLETO",
-            facturado: true,
-            esDuplicado: false,
-            esUnico: true,
-            procesadoPorConcentrador: true,
-            ultimaActualizacionConcentrador: "2024-04-09"
-          }
-        };
-        
-        setExpediente(mockExpediente);
-        setLoading(false);
-      }, 800);
+      const response = await expedientesService.getExpedienteById(id);
       
+      if (response.success) {
+        setExpediente(response.data);
+      } else {
+        setError(response.message || 'No se pudo cargar la información del expediente');
+      }
     } catch (err) {
-      setError('Error al cargar los detalles del expediente');
-      setLoading(false);
+      setError('Error de conexión al servidor');
       console.error('Error fetching expediente details:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
