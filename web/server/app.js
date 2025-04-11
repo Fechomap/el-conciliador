@@ -8,6 +8,7 @@ import * as dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { connectToDatabase } from '../../core/db/connection.js';
 import expedientesRoutes from './api/routes/expedientes.js';
+import uploadRoutes from './api/routes/upload.js'; // Importar nuevas rutas
 
 // Configurar variables de entorno
 dotenv.config();
@@ -15,6 +16,7 @@ dotenv.config();
 // Configurar __dirname para ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const ROOT_DIR = path.join(__dirname, '../..');
 
 // Crear aplicación Express
 const app = express();
@@ -32,6 +34,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Rutas API
 app.use('/api/expedientes', expedientesRoutes);
+app.use('/api/upload', uploadRoutes); // Añadir rutas de upload
 
 // Ruta de estado
 app.get('/api/status', (req, res) => {
@@ -43,35 +46,46 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-// Ruta para cualquier solicitud que no coincida con las rutas anteriores
-app.get('*', (req, res) => {
-  // Mostrar una página simple
-  res.send(`
-    <html>
-      <head>
-        <title>El Conciliador - API</title>
-        <style>
-          body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-          h1 { color: #333; }
-          pre { background: #f4f4f4; padding: 10px; border-radius: 5px; }
-          .endpoint { margin-bottom: 10px; }
-          .method { display: inline-block; width: 60px; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <h1>El Conciliador - API</h1>
-        <p>La API está funcionando correctamente.</p>
-        
-        <h2>Endpoints disponibles:</h2>
-        <div class="endpoint"><span class="method">GET</span> /api/status</div>
-        <div class="endpoint"><span class="method">GET</span> /api/expedientes</div>
-        <div class="endpoint"><span class="method">GET</span> /api/expedientes/:id</div>
-        <div class="endpoint"><span class="method">GET</span> /api/expedientes/numero/:numeroExpediente</div>
-        <div class="endpoint"><span class="method">GET</span> /api/expedientes/cliente/:cliente</div>
-        <div class="endpoint"><span class="method">GET</span> /api/expedientes/estadisticas</div>
-      </body>
-    </html>
-  `);
+// Servir archivos estáticos del frontend en producción
+if (process.env.NODE_ENV === 'production') {
+  const clientPath = path.join(__dirname, '../client/dist');
+  app.use(express.static(clientPath));
+  
+  // Enviar el index.html para todas las rutas no-API
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api/')) {
+      res.sendFile(path.join(clientPath, 'index.html'));
+    }
+  });
+}
+
+// En desarrollo, mostrar una página simple
+app.get('/', (req, res) => {
+  if (process.env.NODE_ENV !== 'production') {
+    res.send(`
+      <html>
+        <head>
+          <title>El Conciliador - API</title>
+          <style>
+            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+            h1 { color: #333; }
+            pre { background: #f4f4f4; padding: 10px; border-radius: 5px; }
+            .endpoint { margin-bottom: 10px; }
+            .method { display: inline-block; width: 60px; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <h1>El Conciliador - API</h1>
+          <p>La API está funcionando correctamente.</p>
+          
+          <h2>Endpoints disponibles:</h2>
+          <div class="endpoint"><span class="method">GET</span> /api/status</div>
+          <div class="endpoint"><span class="method">GET</span> /api/expedientes</div>
+          <div class="endpoint"><span class="method">POST</span> /api/upload/process</div>
+        </body>
+      </html>
+    `);
+  }
 });
 
 // Error handler middleware
