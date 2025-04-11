@@ -188,6 +188,7 @@ const expedienteSchema = new mongoose.Schema({
 
 // Índice compuesto para expediente y cliente (para evitar duplicados exactos)
 expedienteSchema.index({ numeroExpediente: 1, cliente: 1 }, { unique: true });
+expedienteSchema.index({ numeroExpediente: 1 });
 
 // Otros índices para optimizar consultas
 expedienteSchema.index({ 'pedidos.numeroPedido': 1 });
@@ -195,7 +196,6 @@ expedienteSchema.index({ 'facturas.numeroFactura': 1 });
 expedienteSchema.index({ 'metadatos.ultimaActualizacion': -1 });
 expedienteSchema.index({ 'metadatos.esDuplicado': 1 });
 expedienteSchema.index({ 'metadatos.esUnico': 1 });
-expedienteSchema.index({ 'datosConcentrado.numero': 1 });
 expedienteSchema.index({ 'datos.tipoServicio': 1 });
 
 // Método para verificar integridad del expediente

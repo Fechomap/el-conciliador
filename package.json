@@ -22,7 +22,8 @@
     "install:deps": "npm install && pip install -r requirements.txt",
     "verificar": "node scripts/verificar-integridad.js",
     "importar": "node scripts/importar-concentrado.js",
-    "limpiar-db": "node scripts/eliminar-expedientes.js"
+    "limpiar-db": "node scripts/eliminar-expedientes.js",
+    "arreglar-indices": "node scripts/fix-mongodb-indexes.js"
   },
   "repository": {
     "type": "git",
