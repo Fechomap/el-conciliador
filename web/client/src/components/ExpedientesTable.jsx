@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Added useCallback
 import { Search, ChevronLeft, ChevronRight, RefreshCw, Filter, User, FileText, Calendar, Tag } from 'lucide-react';
 import { expedientesService } from '../services/api';
 
-const ExpedientesTable = () => {
+// Changed prop name from selectedClient to clienteFilter
+const ExpedientesTable = ({ onExpedienteSelect, clienteFilter }) => { 
   // Estado para los datos
   const [expedientes, setExpedientes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,64 +17,86 @@ const ExpedientesTable = () => {
     total: 0
   });
   
-  // Estado para filtros
+  // Estado para filtros (removed cliente from here)
   const [filters, setFilters] = useState({
-    cliente: '',
     tipoServicio: '',
     estadoGeneral: ''
   });
   
-  // Efecto para cargar datos
-  useEffect(() => {
-    fetchExpedientes();
-  }, [pagination.page, pagination.limit, filters]);
+  // Removed useEffect that synced selectedClient prop
   
-  // Función para obtener datos de la API
-  const fetchExpedientes = async () => {
+  // Efecto para cargar datos - Added clienteFilter to dependencies
+  // Wrapped fetchExpedientes in useCallback to stabilize its reference
+  const fetchExpedientes = useCallback(async () => {
     setLoading(true);
+    setError(null); // Clear previous errors
+    console.log('Fetching expedientes with filter:', clienteFilter, 'and page:', pagination.page);
     try {
-      const response = await expedientesService.getExpedientes({
+      const params = {
         page: pagination.page,
         limit: pagination.limit,
-        cliente: filters.cliente,
-        tipoServicio: filters.tipoServicio,
-        estadoGeneral: filters.estadoGeneral
-      });
-
+        // Use clienteFilter prop directly
+        ...(clienteFilter && { cliente: clienteFilter }), 
+        ...(filters.tipoServicio && { tipoServicio: filters.tipoServicio }),
+        ...(filters.estadoGeneral && { estadoGeneral: filters.estadoGeneral })
+      };
+  
+      console.log('Parámetros de búsqueda:', params); // Para depuración
+  
+      const response = await expedientesService.getExpedientes(params);
+  
       if (response.success) {
         setExpedientes(response.data);
-        setPagination({
-          ...pagination,
+        setPagination(prev => ({ // Use functional update for safety
+          ...prev,
           totalPages: response.pagination.totalPages,
           total: response.pagination.total
-        });
+        }));
       } else {
         setError(response.message || 'Error al cargar los datos');
+        setExpedientes([]); // Clear data on error
+        setPagination(prev => ({ ...prev, totalPages: 0, total: 0 }));
       }
     } catch (err) {
+      console.error('Error completo fetchExpedientes:', err);
       setError('Error de conexión al servidor. Intente nuevamente.');
-      console.error('Error fetching expedientes:', err);
+      setExpedientes([]); // Clear data on error
+      setPagination(prev => ({ ...prev, totalPages: 0, total: 0 }));
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.page, pagination.limit, filters, clienteFilter]); // Added clienteFilter dependency
+
+  // useEffect to call the memoized fetch function
+  useEffect(() => {
+    fetchExpedientes();
+  }, [fetchExpedientes]); // Dependency is the stable fetch function reference
+  
+  // Reset page to 1 when filters (excluding clienteFilter handled by App.jsx) change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }));
+  }, [filters.tipoServicio, filters.estadoGeneral]);
+
+  // Reset page to 1 when the external clienteFilter changes
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }));
+  }, [clienteFilter]);
   
   // Función para cambiar de página
   const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= pagination.totalPages) {
-      setPagination({ ...pagination, page: newPage });
+    if (newPage >= 1 && newPage <= pagination.totalPages && newPage !== pagination.page) {
+      setPagination(prev => ({ ...prev, page: newPage }));
     }
   };
   
-  // Función para actualizar filtros
+  // Función para actualizar filtros (excluding cliente)
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters({ ...filters, [name]: value });
-    // Reiniciar a la primera página cuando se aplica un filtro
-    setPagination({ ...pagination, page: 1 });
+    setFilters(prev => ({ ...prev, [name]: value }));
+    // Page reset is handled by the separate useEffect hook now
   };
   
-  // Función para formatear fecha
+  // Función para formatear fecha 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     
@@ -116,20 +139,7 @@ const ExpedientesTable = () => {
         </div>
         
         <div className="flex flex-wrap gap-2">
-          {/* Filtro de Cliente */}
-          <div className="relative flex items-center">
-            <select
-              name="cliente"
-              value={filters.cliente}
-              onChange={handleFilterChange}
-              className="appearance-none pl-8 pr-4 py-2 border border-gray-300 bg-white rounded-md shadow-sm text-sm focus:outline-none focus:border-blue-500"
-            >
-              <option value="">Todos los clientes</option>
-              <option value="IKE">IKE</option>
-              <option value="DEMO">DEMO</option>
-            </select>
-            <User size={16} className="absolute left-2 text-gray-400" />
-          </div>
+          {/* Filtro de Cliente REMOVED from table header */}
           
           {/* Filtro de Tipo de Servicio */}
           <div className="relative flex items-center">
@@ -244,7 +254,12 @@ const ExpedientesTable = () => {
               expedientes.map((expediente) => (
                 <tr key={expediente._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-blue-600 hover:text-blue-800">
+                    {/* Make numeroExpediente clickable */}
+                    <div 
+                      className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer"
+                      onClick={() => onExpedienteSelect(expediente._id)} 
+                      title={`Ver detalles de ${expediente.numeroExpediente}`}
+                    >
                       {expediente.numeroExpediente}
                     </div>
                   </td>

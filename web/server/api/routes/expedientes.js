@@ -187,6 +187,28 @@ router.get('/numero/:numeroExpediente', async (req, res, next) => {
 });
 
 /**
+ * @route   GET /api/expedientes/clientes
+ * @desc    Obtener lista única de clientes
+ * @access  Public
+ */
+router.get('/clientes', async (req, res, next) => {
+  try {
+    // Obtener clientes únicos, excluyendo nulos o vacíos si es necesario
+    const clientes = await Expediente.distinct('cliente', { cliente: { $ne: null, $ne: "" } });
+    
+    // Ordenar alfabéticamente para consistencia
+    clientes.sort(); 
+
+    res.json({
+      success: true,
+      data: clientes
+    });
+  } catch (error) {
+    next(error); // Pasar el error al manejador de errores global
+  }
+});
+
+/**
  * @route   GET /api/expedientes/:id
  * @desc    Obtener detalles de un expediente
  * @access  Public

@@ -14,6 +14,9 @@ const App = () => {
   // Estado para abrir/cerrar menú móvil
   const [menuOpen, setMenuOpen] = useState(false);
   
+  // Estado para el filtro de cliente (aplicado a la tabla)
+  const [clienteFilter, setClienteFilter] = useState(null); // Renamed from selectedClient
+  
   // Función para manejar la selección de un expediente
   const handleExpedienteSelect = (id) => {
     setSelectedExpedienteId(id);
@@ -31,6 +34,22 @@ const App = () => {
     setActiveView(view);
     setMenuOpen(false); // Cerrar menú móvil al cambiar de vista
   };
+
+  // Función para manejar la selección de un cliente desde el sidebar del Dashboard
+  const handleClienteFilterChange = (cliente) => {
+    console.log('Filtro de cliente cambiado a:', cliente); // Para depuración
+    setClienteFilter(cliente); // cliente será null si se selecciona 'Mostrar Todos'
+
+    // Si estamos viendo detalles, volver a la tabla al aplicar filtro
+    if (activeView === 'expediente-detail') {
+      setSelectedExpedienteId(null);
+      setActiveView('expedientes'); 
+    }
+    // Cambiar a la vista de expedientes si no estamos ya ahí o en el dashboard
+    if (activeView !== 'expedientes' && activeView !== 'dashboard') {
+       setActiveView('expedientes');
+    }
+  };
   
   // Renderizar contenido según la vista activa
   const renderContent = () => {
@@ -43,11 +62,19 @@ const App = () => {
           />
         );
       case 'dashboard':
-        return <Dashboard />;
+        // Pass filter state and handler to Dashboard
+        return <Dashboard 
+                 selectedClient={clienteFilter} // Pass current filter for stats dropdown sync
+                 activeClienteFilter={clienteFilter} // Pass filter to highlight sidebar button
+                 onClienteSelect={handleClienteFilterChange} // Pass handler for sidebar clicks
+               />; 
       case 'expedientes':
       default:
         return (
-          <ExpedientesTable onExpedienteSelect={handleExpedienteSelect} />
+          <ExpedientesTable 
+            onExpedienteSelect={handleExpedienteSelect} 
+            clienteFilter={clienteFilter} // Pass the filter state to the table
+          />
         );
     }
   };
@@ -210,22 +237,8 @@ const App = () => {
                   Dashboard
                 </button>
               </div>
-              
-              <div className="mt-10">
-                <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Clientes
-                </h3>
-                <div className="mt-2 space-y-1">
-                  <button className="group flex items-center px-3 py-2 text-sm font-medium rounded-md w-full text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-                    <div className="w-2 h-2 rounded-full bg-blue-600 mr-3"></div>
-                    IKE
-                  </button>
-                  <button className="group flex items-center px-3 py-2 text-sm font-medium rounded-md w-full text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-                    <div className="w-2 h-2 rounded-full bg-green-600 mr-3"></div>
-                    DEMO
-                  </button>
-                </div>
-              </div>
+              {/* Sección de Clientes eliminada del sidebar principal */}
+              {/* La lógica de filtro de clientes ahora está dentro del Dashboard */}
             </div>
           </div>
           

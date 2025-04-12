@@ -67,21 +67,16 @@ export const expedientesService = {
     if (params.page) queryParams.append('page', params.page);
     if (params.limit) queryParams.append('limit', params.limit);
     
-    // Añadir filtros
+    // Añadir filtros (asegúrate de que el nombre sea exactamente como lo espera el backend)
     if (params.cliente) queryParams.append('cliente', params.cliente);
     if (params.tipoServicio) queryParams.append('tipoServicio', params.tipoServicio);
     if (params.estadoGeneral) queryParams.append('estadoGeneral', params.estadoGeneral);
-    if (params.facturado !== undefined) queryParams.append('facturado', params.facturado);
     
-    // Añadir ordenamiento
-    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
-    if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
-
     // Construir endpoint con parámetros
     const endpoint = `/expedientes?${queryParams.toString()}`;
     
     return apiRequest(endpoint);
-  },
+  }, // <-- COMA AÑADIDA AQUÍ
 
   /**
    * Obtiene los detalles de un expediente por ID
@@ -137,6 +132,15 @@ export const expedientesService = {
     }
     
     return apiRequest(endpoint);
+  }, // <-- COMA AÑADIDA AQUÍ
+
+  /**
+   * Obtiene la lista única de clientes desde los expedientes
+   * @returns {Promise<Array<string>>} - Lista de nombres de clientes
+   */
+  getClientes: async () => {
+    const response = await apiRequest('/expedientes/clientes');
+    return response.data; // Devuelve el array de clientes
   }
 };
 
