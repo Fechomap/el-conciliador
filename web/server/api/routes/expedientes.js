@@ -114,22 +114,14 @@ router.get('/cliente/:cliente', async (req, res, next) => {
       filter['metadatos.facturado'] = req.query.facturado === 'true';
     }
     
-    // Ejecutar consulta optimizada
-    const [expedientes, total] = await Promise.all([
-      Expediente.find(filter)
-        .select({
-          _id: 1,
-          numeroExpediente: 1,
-          'datos.fechaCreacion': 1,
-          'datos.tipoServicio': 1,
-          'metadatos.facturado': 1,
-          'metadatos.estadoGeneral': 1,
-          'metadatos.ultimaActualizacion': 1
-        })
-        .sort({ 'metadatos.ultimaActualizacion': -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+      // Ejecutar consulta optimizada - Devolver TODOS los campos
+      const [expedientes, total] = await Promise.all([
+        Expediente.find(filter)
+          // Se eliminó el .select() para devolver todos los campos
+          .sort({ 'metadatos.ultimaActualizacion': -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
       Expediente.countDocuments(filter)
     ]);
     
@@ -261,19 +253,10 @@ router.get('/', async (req, res, next) => {
       filter['metadatos.facturado'] = facturado;
     }
     
-    // Ejecutar consulta optimizada
+    // Ejecutar consulta optimizada - Devolver TODOS los campos
     const [expedientes, total] = await Promise.all([
       Expediente.find(filter)
-        .select({
-          _id: 1,
-          numeroExpediente: 1,
-          cliente: 1,
-          'datos.fechaCreacion': 1,
-          'datos.tipoServicio': 1,
-          'metadatos.facturado': 1,
-          'metadatos.estadoGeneral': 1,
-          'metadatos.ultimaActualizacion': 1
-        })
+        // Se eliminó el .select() para devolver todos los campos
         .sort({ 'metadatos.ultimaActualizacion': -1 })
         .skip(skip)
         .limit(limit)
