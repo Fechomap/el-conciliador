@@ -11,14 +11,8 @@
     "start": "node web/server/app.js",
     "build": "cd web/client && npm install && npm run build",
     "heroku-postbuild": "npm run build && node scripts/heroku-postbuild.js",
-    "test:concentrador": "node scripts/test_concentrador.js",
-    "test:api": "node scripts/test_api.js",
-    "test:integration": "node scripts/test_integration.js",
-    "test:mongodb": "python scripts/test_mongodb_connection.py",
-    "load:testdata": "node scripts/load_test_data.js",
-    "import:excel": "node modules/ike-processor/scripts/excel_mongodb_sync.js import",
-    "export:excel": "node modules/ike-processor/scripts/excel_mongodb_sync.js export",
-    "process-files": "node scripts/heroku-postbuild.js"
+    "import:concentrado": "node scripts/importar-concentrado.js",
+    "eliminar:expedientes": "node scripts/eliminar-expedientes.js"
   },
   "repository": {
     "type": "git",
@@ -28,8 +22,7 @@
     "expedientes",
     "mongodb",
     "node",
-    "react",
-    "python"
+    "react"
   ],
   "author": "",
   "license": "UNLICENSED",
@@ -40,13 +33,9 @@
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
-    "form-data": "^4.0.2",
     "helmet": "^6.2.0",
     "mongoose": "^7.8.6",
     "morgan": "^1.10.0",
-    "multer": "^1.4.5-lts.1",
-    "node-fetch": "^2.7.0",
-    "python-shell": "^5.0.0",
     "uuid": "^9.0.1",
     "xlsx": "^0.18.5"
   },
