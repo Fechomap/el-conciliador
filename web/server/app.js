@@ -33,7 +33,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // Usar el router principal de la API
 console.log('Registrando rutas de API...');
-app.use('/', apiRouter);
+app.use('/api', apiRouter);
+console.log('Rutas de API montadas en /api');
 console.log('Rutas registradas.');
 
 // Imprimir todas las rutas registradas
@@ -85,7 +86,6 @@ app.get('/', (req, res) => {
           <h2>Endpoints disponibles:</h2>
           <div class="endpoint"><span class="method">GET</span> /api/status</div>
           <div class="endpoint"><span class="method">GET</span> /api/expedientes</div>
-          <div class="endpoint"><span class="method">POST</span> /api/upload/process</div>
         </body>
       </html>
     `);

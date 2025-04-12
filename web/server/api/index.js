@@ -64,12 +64,12 @@ router.use(express.urlencoded({ extended: true })); // Parsing URL-encoded
 router.use(morgan('dev')); // Logging
 
 // Importar rutas de API
-console.log('Registrando ruta /api/expedientes...');
-router.use('/api/expedientes', expedientesRoutes);
+console.log('Registrando ruta /expedientes...');
+router.use('/expedientes', expedientesRoutes);
 
 
 // Ruta de estado
-router.get('/api/status', (req, res) => {
+router.get('/status', (req, res) => {
   res.json({
     name: 'El Conciliador API',
     version: '1.0.0',
