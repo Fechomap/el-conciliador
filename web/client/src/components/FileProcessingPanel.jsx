@@ -41,69 +41,84 @@ export default function FileProcessingPanel() {
     setCurrentStep("preparing");
     setError(null);
     setResults(null);
-    
+    setCurrentStep("uploading"); // Indicate start of processing
+
     try {
       // Crear FormData para enviar archivos
       const formData = new FormData();
-      
-      // Agregar PDFs de pedidos
+
+      // Agregar PDFs de pedidos (usando la clave 'pedidosPdfs' que espera el backend)
       orderPdfs.forEach(file => {
-        formData.append('orderPdfs', file);
+        formData.append('pedidosPdfs', file, file.name); // Asegurar nombre original
       });
-      
-      // Agregar PDFs de facturas
+
+      // Agregar PDFs de facturas (usando la clave 'facturasPdfs')
       invoicePdfs.forEach(file => {
-        formData.append('invoicePdfs', file);
+        formData.append('facturasPdfs', file, file.name); // Asegurar nombre original
       });
-      
-      // Agregar Excel si existe
+
+      // Agregar Excel si existe (usando la clave 'excelFile')
       if (excelFile) {
-        formData.append('excelFile', excelFile);
+        formData.append('excelFile', excelFile, excelFile.name); // Asegurar nombre original
       }
+
+      // --- Llamada real a la API ---
+      console.log('Enviando archivos a /api/procesar-archivos...');
+      console.log('Pedidos PDFs:', orderPdfs.map(f => f.name));
+      console.log('Facturas PDFs:', invoicePdfs.map(f => f.name));
+      console.log('Excel:', excelFile ? excelFile.name : 'Ninguno');
       
-      // Simular respuesta de API (reemplazar con llamada real)
-      // En implementación real, esto sería un fetch a su API
-      // 1. Preparar archivos
-      setCurrentStep("uploading");
-      await simulateApiStep(2000);
+      let result;
       
-      // 2. Procesar PDFs
-      if (orderPdfs.length > 0 || invoicePdfs.length > 0) {
-        setCurrentStep("processing_pdfs");
-        await simulateApiStep(3000);
+      try {
+        const response = await fetch('/api/procesar-archivos', {
+          method: 'POST',
+          body: formData,
+          // No establecer 'Content-Type', el navegador lo hará por FormData
+        });
+        
+        console.log('Respuesta recibida:', response.status, response.statusText);
+        
+        if (!response.ok) {
+          console.error('Error en la respuesta:', response.status, response.statusText);
+          throw new Error(`Error del servidor: ${response.status} ${response.statusText}`);
+        }
+        
+        result = await response.json();
+        console.log('Resultado:', result);
+        
+        if (!result.success) {
+          throw new Error(result.message || 'Error desconocido');
+        }
+      } catch (error) {
+        console.error('Error al procesar la respuesta:', error);
+        throw error;
       }
-      
-      // 3. Sincronizar con MongoDB
-      setCurrentStep("syncing");
-      await simulateApiStep(2000);
-      
-      // 4. Ejecutar concentrador
-      setCurrentStep("concentrator");
-      await simulateApiStep(2500);
-      
-      // Simular resultados exitosos
+
+      // Mostrar mensaje de éxito (podríamos mostrar más detalles si el backend los devuelve)
       setResults({
-        processingTime: "00:08:23",
+        message: result?.message || "Archivos procesados con éxito.",
+        // Podríamos añadir más detalles aquí si el backend los devuelve
         processedFiles: orderPdfs.length + invoicePdfs.length + (excelFile ? 1 : 0),
-        newRecords: Math.floor(Math.random() * 20) + 5,
-        updatedRecords: Math.floor(Math.random() * 15) + 3,
-        duplicates: Math.floor(Math.random() * 5)
       });
-      
+      // Limpiar formularios después del éxito
+      setOrderPdfs([]);
+      setInvoicePdfs([]);
+      setExcelFile(null);
+      if (orderInputRef.current) orderInputRef.current.value = '';
+      if (invoiceInputRef.current) invoiceInputRef.current.value = '';
+      if (excelInputRef.current) excelInputRef.current.value = '';
+
+
     } catch (err) {
       console.error("Error processing files:", err);
-      setError("Ha ocurrido un error durante el procesamiento. Por favor inténtelo de nuevo.");
+      setError(err.message || "Ha ocurrido un error durante el procesamiento. Verifique la consola del servidor para más detalles.");
     } finally {
       setProcessing(false);
-      setCurrentStep(null);
+      setCurrentStep(null); // Reset step indicator
     }
   };
-  
-  // Función para simular pasos de API (para demo)
-  const simulateApiStep = (ms) => {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  };
-  
+
   // Función para reiniciar el proceso
   const resetProcess = () => {
     setOrderPdfs([]);
@@ -276,82 +291,43 @@ export default function FileProcessingPanel() {
                 Limpiar
               </button>
               <button
-                className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg flex items-center"
+                className={`bg-blue-600 text-white py-2 px-6 rounded-lg flex items-center ${processing ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
                 onClick={processPdfs}
-                disabled={orderPdfs.length === 0 && invoicePdfs.length === 0 && !excelFile}
+                disabled={processing || (orderPdfs.length === 0 && invoicePdfs.length === 0 && !excelFile)}
               >
-                <Upload size={18} className="mr-2" />
-                Procesar Archivos
+                {processing ? (
+                  <>
+                    <RefreshCw size={18} className="mr-2 animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    <Upload size={18} className="mr-2" />
+                    Procesar Archivos
+                  </>
+                )}
               </button>
             </div>
           </div>
         ) : processing ? (
-          <div className="flex flex-col items-center py-8">
-            <div className="text-center">
-              <RefreshCw size={40} className="animate-spin mx-auto text-blue-500 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Procesando Archivos</h3>
-              <p className="text-gray-500 max-w-md">
-                Este proceso puede tomar varios minutos dependiendo del número y tamaño de los archivos.
-              </p>
-              
-              <div className="mt-6 w-full max-w-md mx-auto">
-                <div className="relative">
-                  <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-100">
-                    <div className={`shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-500 ${
-                      currentStep === "preparing" ? "w-1/5" :
-                      currentStep === "uploading" ? "w-2/5" :
-                      currentStep === "processing_pdfs" ? "w-3/5" :
-                      currentStep === "syncing" ? "w-4/5" :
-                      currentStep === "concentrator" ? "w-full" : "w-0"
-                    }`}></div>
-                  </div>
-                </div>
-                
-                <div className="text-sm text-gray-600 mt-2">
-                  {currentStep === "preparing" && "Preparando archivos..."}
-                  {currentStep === "uploading" && "Subiendo archivos al servidor..."}
-                  {currentStep === "processing_pdfs" && "Extrayendo información de los PDFs..."}
-                  {currentStep === "syncing" && "Sincronizando con base de datos..."}
-                  {currentStep === "concentrator" && "Ejecutando proceso de consolidación..."}
-                </div>
-              </div>
-            </div>
+          // --- Indicador de Carga Simplificado ---
+          <div className="flex flex-col items-center py-12">
+            <RefreshCw size={40} className="animate-spin text-blue-500 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900">Procesando Archivos...</h3>
+            <p className="text-sm text-gray-500 mt-1">Esto puede tardar unos momentos.</p>
           </div>
         ) : results ? (
+          // --- Vista de Resultados Simplificada ---
           <div className="text-center py-6">
             <div className="bg-green-50 inline-flex rounded-full p-4 mb-4">
               <CheckCircle size={40} className="text-green-500" />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">¡Procesamiento Completado!</h3>
-            <p className="text-gray-500 mb-6">
-              Los archivos han sido procesados exitosamente y los datos han sido integrados al sistema.
+            <p className="text-gray-600 mb-4">
+              {results.message || `Se procesaron ${results.processedFiles} archivo(s).`}
             </p>
-            
-            <div className="bg-gray-50 rounded-lg p-4 max-w-md mx-auto mb-6">
-              <div className="grid grid-cols-2 gap-4 text-left">
-                <div>
-                  <p className="text-sm text-gray-500">Tiempo de procesamiento</p>
-                  <p className="font-medium">{results.processingTime}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Archivos procesados</p>
-                  <p className="font-medium">{results.processedFiles}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Registros nuevos</p>
-                  <p className="font-medium">{results.newRecords}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Registros actualizados</p>
-                  <p className="font-medium">{results.updatedRecords}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Duplicados detectados</p>
-                  <p className="font-medium">{results.duplicates}</p>
-                </div>
-              </div>
-            </div>
-            
+            {/* Podríamos añadir más detalles aquí si fuera necesario */}
+            {/* <div className="bg-gray-50 rounded-lg p-4 max-w-md mx-auto mb-6"> ... </div> */}
             <div className="flex justify-center">
               <button
                 className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg"

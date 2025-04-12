@@ -7,8 +7,7 @@ import cors from 'cors';
 import * as dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { connectToDatabase } from '../../core/db/connection.js';
-import expedientesRoutes from './api/routes/expedientes.js';
-import uploadRoutes from './api/routes/upload.js'; // Importar nuevas rutas
+import apiRouter from './api/index.js'; // Importar el router principal de la API
 
 // Configurar variables de entorno
 dotenv.config();
@@ -32,18 +31,23 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rutas API
-app.use('/api/expedientes', expedientesRoutes);
-app.use('/api/upload', uploadRoutes); // Añadir rutas de upload
+// Usar el router principal de la API
+console.log('Registrando rutas de API...');
+app.use('/', apiRouter);
+console.log('Rutas registradas.');
 
-// Ruta de estado
-app.get('/api/status', (req, res) => {
-  res.json({
-    name: 'El Conciliador API',
-    version: '1.0.0',
-    status: 'online',
-    timestamp: new Date().toISOString()
-  });
+// Imprimir todas las rutas registradas
+console.log('Rutas disponibles:');
+app._router.stack.forEach(function(r){
+  if (r.route && r.route.path){
+    console.log(r.route.stack[0].method.toUpperCase() + ' ' + r.route.path);
+  } else if (r.name === 'router') {
+    r.handle.stack.forEach(function(layer) {
+      if (layer.route) {
+        console.log(layer.route.stack[0].method.toUpperCase() + ' ' + layer.route.path);
+      }
+    });
+  }
 });
 
 // Servir archivos estáticos del frontend en producción

@@ -7,6 +7,7 @@ import compression from 'compression';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import expedientesRoutes from './routes/expedientes.js';
+import { procesarArchivos } from './routes/processing.js'; // <-- Importar la función directamente
 
 // Importar manejadores de errores
 const errorHandlers = {
@@ -64,7 +65,20 @@ router.use(express.urlencoded({ extended: true })); // Parsing URL-encoded
 router.use(morgan('dev')); // Logging
 
 // Importar rutas de API
+console.log('Registrando ruta /api/expedientes...');
 router.use('/api/expedientes', expedientesRoutes);
+
+console.log('Registrando ruta /api/procesar-archivos...');
+// Registrar la ruta con la función procesarArchivos
+router.post('/api/procesar-archivos', (req, res) => {
+  console.log('Recibida solicitud POST a /api/procesar-archivos');
+  try {
+    procesarArchivos(req, res);
+  } catch (error) {
+    console.error('Error al procesar archivos:', error);
+    res.status(500).json({ success: false, message: 'Error al procesar archivos' });
+  }
+});
 
 // Ruta de estado
 router.get('/api/status', (req, res) => {
