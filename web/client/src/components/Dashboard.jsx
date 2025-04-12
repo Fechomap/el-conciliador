@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
          PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { BarChart2, TrendingUp, RefreshCw, FileText, Clock, Check, Tag, Users, Activity } from 'lucide-react';
+import { expedientesService } from '../services/api';
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
@@ -24,47 +25,25 @@ const Dashboard = () => {
   }, []);
   
   // Cargar estadísticas
+  // Actualizando fetchEstadisticas para utilizar la API real
+
   const fetchEstadisticas = async () => {
     setLoading(true);
     try {
-      // Simular llamada a la API
-      setTimeout(() => {
-        // Datos de ejemplo
-        const data = {
-          totales: {
-            expedientes: 48,
-            facturados: 34,
-            pendientes: 14
-          },
-          tiposServicio: {
-            ARRASTRE: 20,
-            GRUA: 14,
-            SALVAMENTO: 8,
-            TRASLADO: 6
-          },
-          clientes: [
-            {
-              cliente: 'IKE',
-              total: 30,
-              facturados: 22,
-              pendientes: 8
-            },
-            {
-              cliente: 'DEMO',
-              total: 18,
-              facturados: 12,
-              pendientes: 6
-            }
-          ]
-        };
-        
-        setStats(data);
-        setLoading(false);
-      }, 1000);
+      // Llamada real a la API utilizando el servicio existente
+      const clienteParam = selectedCliente && selectedCliente !== 'todos' ? selectedCliente : null;
+      const response = await expedientesService.getEstadisticas(clienteParam);
+      
+      if (response.success) {
+        setStats(response.data);
+      } else {
+        setError(response.message || 'No se pudieron cargar las estadísticas');
+      }
     } catch (err) {
       setError('Error al cargar estadísticas');
-      setLoading(false);
       console.error('Error fetching stats:', err);
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -179,7 +158,7 @@ const Dashboard = () => {
             className="appearance-none px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm text-sm focus:outline-none focus:border-blue-500"
           >
             <option value="">Todos los clientes</option>
-            {stats.clientes.map(cliente => (
+            {stats.clientes && stats.clientes.map(cliente => (
               <option key={cliente.cliente} value={cliente.cliente}>
                 {cliente.cliente}
               </option>

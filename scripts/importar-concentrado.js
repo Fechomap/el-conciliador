@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 /**
- * Script para Importar el Concentrado General a MongoDB
- * 
+ * Script para Importar el Concentrado General a MongoDB (Validación Exacta sin normalización)
+ *
  * Este script:
- * 1. Lee el archivo Excel del Concentrado General
- * 2. Mapea todas las columnas (A-AV) a la estructura de MongoDB
- * 3. Inserta o actualiza los documentos en MongoDB
- * 4. Genera un reporte del proceso
- * 
+ * 1. Lee el archivo Excel del Concentrado General.
+ * 2. Mapea todas las columnas (A-AV) a la estructura de MongoDB, sin transformar (validación exacta).
+ * 3. Para cada registro, verifica si ya existe en MongoDB (filtrado por "numeroExpediente" y "cliente").
+ *    - Si existe y es exactamente igual (usando JSON.stringify), se omite la actualización.
+ *    - Si existe pero es diferente, se actualiza.
+ *    - Si no existe, se inserta.
+ * 4. Genera un reporte del proceso.
+ *
  * Uso:
- *   node scripts/importar-concentrado.js [ruta-excel]
+ *   node scripts/importar-concentrado
  */
 
 import fs from 'fs';
@@ -18,7 +21,7 @@ import { fileURLToPath } from 'url';
 import XLSX from 'xlsx';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import chalk from 'chalk'; // Para colorear la salida en consola
+import chalk from 'chalk';
 
 // Configuración de __dirname para ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -26,6 +29,12 @@ const __dirname = path.dirname(__filename);
 
 // Cargar variables de entorno
 dotenv.config();
+
+// Procesar argumentos de línea de comandos
+const args = process.argv.slice(2);
+let excelPath = args[0] || path.join(process.env.HOME, 'Desktop', 'CONCENTRADO-CRK', 'concentrado-general.xlsx');
+
+console.log(chalk.blue('Modo: VALIDACIÓN EXACTA (sin normalización)'));
 
 // Mapeo explícito de columnas del Excel a MongoDB
 const COLUMNAS_CONCENTRADO = {
@@ -82,76 +91,37 @@ const COLUMNAS_CONCENTRADO = {
   'AV': 'tipoServicio'
 };
 
-// Conectar a MongoDB
-async function conectarMongoDB() {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
-    console.log(chalk.green('✅ Conexión a MongoDB establecida'));
-    return true;
-  } catch (error) {
-    console.error(chalk.red('❌ Error conectando a MongoDB:'), error.message);
-    return false;
-  }
+// Función identity: devuelve el valor tal cual (para validación exacta)
+function identity(value) {
+  return String(value);
 }
 
-// Convertir fecha de Excel a Date
+// Se forzará el uso de identity para ambos campos, sin normalización.
+const normalizarExpediente = identity;
+const normalizarCliente = identity;
+
+// Función para convertir una fecha (sin cambios)
 function parseDate(excelDate) {
   if (!excelDate) return null;
-  
-  // Si ya es un objeto Date, devolverlo
-  if (excelDate instanceof Date && !isNaN(excelDate.getTime())) {
-    return excelDate;
-  }
-  
+  if (excelDate instanceof Date && !isNaN(excelDate.getTime())) return excelDate;
   try {
-    // Convertir number o string a fecha
     if (typeof excelDate === 'number') {
-      // Número serial de Excel (días desde 1/1/1900)
-      const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
-      return date;
+      return new Date(Math.round((excelDate - 25569) * 86400 * 1000));
     }
-    
-    if (typeof excelDate === 'string') {
-      // Intentar parsing de formatos comunes de fecha
-      
-      // Formato DD/MM/YYYY
-      const dmyMatch = excelDate.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-      if (dmyMatch) {
-        const [, day, month, year] = dmyMatch;
-        return new Date(year, month - 1, day);
-      }
-      
-      // Intentar Date.parse como último recurso
-      const parsedDate = new Date(excelDate);
-      if (!isNaN(parsedDate.getTime())) {
-        return parsedDate;
-      }
-    }
-    
+    const parsedDate = new Date(excelDate);
+    if (!isNaN(parsedDate.getTime())) return parsedDate;
     return null;
   } catch (e) {
-    console.error('Error parseando fecha:', e);
     return null;
   }
 }
 
-// Convertir valor a número
+// Función para convertir un valor a número (sin cambios)
 function parseNumber(value) {
   if (value === null || value === undefined) return null;
-  
-  // Si ya es número, devolverlo
   if (typeof value === 'number') return value;
-  
   try {
-    // Limpiar formato de moneda y separadores
-    const cleaned = String(value)
-      .replace(/[$,\s]/g, '')
-      .replace(/\.(?=.*\.)/g, '') // Mantener solo el último punto decimal
-      .replace(',', '.'); // Cambiar coma decimal por punto
-      
+    const cleaned = String(value).replace(/[$,\s]/g, '').replace(/\.(?=.*\.)/g, '').replace(',', '.');
     const num = parseFloat(cleaned);
     return isNaN(num) ? null : num;
   } catch (e) {
@@ -159,39 +129,18 @@ function parseNumber(value) {
   }
 }
 
-// Normalizar número de expediente (asegurar 8 dígitos)
-function normalizeExpediente(expediente) {
-  if (!expediente) return '';
-  
-  // Convertir a string y eliminar caracteres no numéricos
-  const expStr = String(expediente).replace(/[^0-9]/g, '');
-  
-  // Asegurar 8 dígitos con ceros a la izquierda
-  return expStr.padStart(8, '0');
-}
-
-// Normalizar cliente (mayúsculas, sin espacios)
-function normalizeCliente(cliente) {
-  if (!cliente) return '';
-  return String(cliente).replace(/\s+/g, '').toUpperCase();
-}
-
-// Mapear una fila del Excel a documento MongoDB
+// Mapear una fila del Excel a un documento de MongoDB (sin normalización)
 function mapearFilaADocumento(fila) {
-  // Obtener número de expediente y cliente (campos clave)
-  const numeroExpediente = normalizeExpediente(fila['numero'] || fila['A'] || fila[0]);
-  const cliente = normalizeCliente(fila['cliente'] || fila['B'] || fila[1]);
+  const numeroExpediente = normalizarExpediente(fila['numero'] || fila['A'] || fila[0]);
+  const cliente = normalizarCliente(fila['cliente'] || fila['B'] || fila[1]);
   
   if (!numeroExpediente) {
     return { error: 'Fila sin número de expediente válido' };
   }
   
-  // Crear estructura base del documento
   const documento = {
     numeroExpediente,
     cliente: cliente || 'DESCONOCIDO',
-    
-    // Datos estructurados para facilitar consultas
     datos: {
       fechaCreacion: parseDate(fila['fechaRegistro'] || fila['C']),
       fechaAsignacion: parseDate(fila['fechaAsignacion'] || fila['D']),
@@ -253,8 +202,6 @@ function mapearFilaADocumento(fila) {
         maniobrasAutorizadas: fila['maniobrasAutorizadas'] || fila['AU']
       }
     },
-    
-    // Metadatos para tracking
     metadatos: {
       ultimaActualizacion: new Date(),
       fuenteDatos: 'concentrado_general',
@@ -262,40 +209,31 @@ function mapearFilaADocumento(fila) {
       estadoGeneral: mapearEstado(fila['estatus'] || fila['K']),
       importadoDesdeConcentrado: true
     },
-    
-    // CRÍTICO: Contenedor para todos los valores originales del concentrado
     datosConcentrado: {}
   };
   
-  // Preservar TODOS los valores originales en datosConcentrado
+  // Preservar todos los valores originales en datosConcentrado
   for (const [columna, nombreCampo] of Object.entries(COLUMNAS_CONCENTRADO)) {
-    // Intentar obtener el valor por diferentes medios
     let valor;
-    
     if (fila[nombreCampo] !== undefined) {
       valor = fila[nombreCampo];
     } else if (fila[columna] !== undefined) {
       valor = fila[columna];
     } else {
-      // Intentar por índice (A=0, B=1, etc.)
       try {
         if (columna.length === 1) {
-          // Columnas A-Z
-          const colIndex = columna.charCodeAt(0) - 65; // A=0, B=1, etc.
+          const colIndex = columna.charCodeAt(0) - 65;
           valor = fila[colIndex];
         } else if (columna.length === 2) {
-          // Columnas AA-AV
-          const primerChar = columna.charCodeAt(0) - 65; // A=0
-          const segundoChar = columna.charCodeAt(1) - 65; // A=0
+          const primerChar = columna.charCodeAt(0) - 65;
+          const segundoChar = columna.charCodeAt(1) - 65;
           const indice = (primerChar + 1) * 26 + segundoChar;
           valor = fila[indice];
         }
       } catch (e) {
-        // Si hay error al acceder por índice, dejarlo como undefined
+        // Si hay error al acceder por índice, dejarlo como undefined.
       }
     }
-    
-    // Solo guardar valores definidos
     if (valor !== undefined) {
       documento.datosConcentrado[nombreCampo] = valor;
     }
@@ -304,45 +242,48 @@ function mapearFilaADocumento(fila) {
   return documento;
 }
 
-// Mapear estado original a valores estandarizados
+// Función para mapear estado original a valores estandarizados (sin cambios)
 function mapearEstado(estadoOriginal) {
   if (!estadoOriginal) return 'PENDIENTE';
-  
   const estado = String(estadoOriginal).toUpperCase();
-  
-  if (estado.includes('COMPLET') || 
-      estado.includes('FACTURA') || 
-      estado.includes('PAGADO') || 
-      estado.includes('FINALIZA')) {
+  if (estado.includes('COMPLET') || estado.includes('FACTURA') || estado.includes('PAGADO') || estado.includes('FINALIZA')) {
     return 'COMPLETO';
   }
-  
-  if (estado.includes('PARCIAL') || 
-      estado.includes('PROCESO') || 
-      estado.includes('EN CURSO')) {
+  if (estado.includes('PARCIAL') || estado.includes('PROCESO') || estado.includes('EN CURSO')) {
     return 'PARCIAL';
   }
-  
   return 'PENDIENTE';
 }
 
-// Función principal para importar Excel a MongoDB
+// Conectar a MongoDB
+async function conectarMongoDB() {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    });
+    console.log(chalk.green('✅ Conexión a MongoDB establecida'));
+    return true;
+  } catch (error) {
+    console.error(chalk.red('❌ Error conectando a MongoDB:'), error.message);
+    return false;
+  }
+}
+
+// Función principal para importar el Excel a MongoDB (sin normalización)
 async function importarConcentradoAMongoDB(excelPath) {
   console.log(chalk.blue('\n=== IMPORTACIÓN DE CONCENTRADO GENERAL A MONGODB ==='));
   console.log(`Archivo Excel: ${excelPath}`);
   
-  // Verificar que el archivo existe
   if (!fs.existsSync(excelPath)) {
     console.error(chalk.red(`❌ El archivo Excel no existe: ${excelPath}`));
     return false;
   }
   
-  // Conectar a MongoDB
   const conexionExitosa = await conectarMongoDB();
   if (!conexionExitosa) return false;
   
   try {
-    // Definir el esquema de Expediente
     const expedienteSchema = new mongoose.Schema({
       numeroExpediente: String,
       cliente: String,
@@ -356,10 +297,8 @@ async function importarConcentradoAMongoDB(excelPath) {
       collection: 'expedientes'
     });
     
-    // Crear modelo
     const Expediente = mongoose.model('Expediente', expedienteSchema);
     
-    // Leer el archivo Excel
     console.log(chalk.blue('\nLeyendo archivo Excel...'));
     const workbook = XLSX.readFile(excelPath);
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -367,29 +306,23 @@ async function importarConcentradoAMongoDB(excelPath) {
     
     console.log(chalk.green(`✅ Excel leído correctamente. ${excelData.length} registros encontrados.`));
     
-    // Estadísticas para el reporte
     const stats = {
       totalRegistros: excelData.length,
       procesados: 0,
       insertados: 0,
       actualizados: 0,
+      sinCambios: 0,
       errores: 0,
       expedientesConError: []
     };
     
-    // Log detallado
-    const logFile = path.join(__dirname, '..', 'logs', 'importacion_concentrado.log');
+    const logFile = path.join(__dirname, '..', 'logs', 'importacion_concentrado_exacto.log');
     const logDir = path.dirname(logFile);
-    
-    // Crear directorio de logs si no existe
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true });
     }
+    fs.writeFileSync(logFile, `=== LOG DE IMPORTACIÓN (EXACTO): ${new Date().toISOString()} ===\n\n`);
     
-    // Crear/limpiar archivo de log
-    fs.writeFileSync(logFile, `=== LOG DE IMPORTACIÓN: ${new Date().toISOString()} ===\n\n`);
-    
-    // Procesar registros en bloques para no sobrecargar memoria
     const tamanoBloque = 100;
     const totalBloques = Math.ceil(excelData.length / tamanoBloque);
     
@@ -402,98 +335,110 @@ async function importarConcentradoAMongoDB(excelPath) {
       
       console.log(chalk.blue(`\nProcesando bloque ${i+1}/${totalBloques} (registros ${inicio+1}-${fin})...`));
       
-      // Procesar registros del bloque
       for (const [index, fila] of bloque.entries()) {
         const posicionGlobal = inicio + index + 1;
         stats.procesados++;
         
-        // Mapear fila a documento
         const documento = mapearFilaADocumento(fila);
         
-        // Verificar si hubo error en el mapeo
         if (documento.error) {
           stats.errores++;
           stats.expedientesConError.push(`Fila ${posicionGlobal}: ${documento.error}`);
-          
-          // Registrar en log
           fs.appendFileSync(logFile, `ERROR - Fila ${posicionGlobal}: ${documento.error}\n`);
           continue;
         }
         
-        try {
-          // Buscar si ya existe el expediente
-          const filtro = {
+        const filtro = {
+          numeroExpediente: documento.numeroExpediente,
+          cliente: documento.cliente
+        };
+        
+        const camposOriginales = Object.keys(documento.datosConcentrado).length;
+        
+        // Buscar si ya existe un documento con el mismo filtro
+        const docExistente = await Expediente.findOne(filtro).lean();
+        if (docExistente) {
+          // Crear objeto con los campos a comparar
+          const newData = {
             numeroExpediente: documento.numeroExpediente,
-            cliente: documento.cliente
+            cliente: documento.cliente,
+            datos: documento.datos,
+            metadatos: documento.metadatos,
+            datosConcentrado: documento.datosConcentrado
           };
-          
-          // Contar campos originales
-          const camposOriginales = Object.keys(documento.datosConcentrado).length;
-          
-          // Actualizar o insertar documento
+          // Comparar con el documento existente (usando JSON.stringify para comparación exacta)
+          if (JSON.stringify(docExistente.numeroExpediente) === JSON.stringify(newData.numeroExpediente) &&
+              JSON.stringify(docExistente.cliente) === JSON.stringify(newData.cliente) &&
+              JSON.stringify(docExistente.datos) === JSON.stringify(newData.datos) &&
+              JSON.stringify(docExistente.metadatos) === JSON.stringify(newData.metadatos) &&
+              JSON.stringify(docExistente.datosConcentrado) === JSON.stringify(newData.datosConcentrado)) {
+            // Documento idéntico, no realizar actualización
+            stats.sinCambios++;
+            fs.appendFileSync(logFile, `SIN CAMBIOS - Expediente: ${documento.numeroExpediente}, Cliente: ${documento.cliente}\n`);
+            continue;
+          } else {
+            // Documento existe pero difiere; realizar actualización
+            const resultado = await Expediente.findOneAndUpdate(
+              filtro,
+              { 
+                $set: {
+                  numeroExpediente: documento.numeroExpediente,
+                  cliente: documento.cliente,
+                  datos: documento.datos,
+                  metadatos: documento.metadatos,
+                  datosConcentrado: documento.datosConcentrado
+                }
+              },
+              { 
+                upsert: true,
+                new: true,
+                setDefaultsOnInsert: true
+              }
+            );
+            if (resultado) {
+              stats.actualizados++;
+              fs.appendFileSync(logFile, `ACTUALIZACIÓN - Expediente: ${documento.numeroExpediente}, Cliente: ${documento.cliente}, Campos: ${camposOriginales}\n`);
+            }
+          }
+        } else {
+          // No existe, insertar nuevo
           const resultado = await Expediente.findOneAndUpdate(
             filtro,
-            // Usamos $set para actualizar solo los campos enviados sin borrar otros
             { 
               $set: {
-                // Solo actualizar estos campos específicos
-                'numeroExpediente': documento.numeroExpediente,
-                'cliente': documento.cliente,
-                'datos': documento.datos,
-                'metadatos': documento.metadatos,
-                'datosConcentrado': documento.datosConcentrado
+                numeroExpediente: documento.numeroExpediente,
+                cliente: documento.cliente,
+                datos: documento.datos,
+                metadatos: documento.metadatos,
+                datosConcentrado: documento.datosConcentrado
               }
             },
             { 
-              upsert: true, // Crear si no existe
-              new: true,    // Devolver documento actualizado
-              setDefaultsOnInsert: true // Usar valores default para nuevos docs
+              upsert: true,
+              new: true,
+              setDefaultsOnInsert: true
             }
           );
-          
-          // Determinar si fue inserción o actualización
-          if (resultado.isNew) {
+          if (resultado) {
             stats.insertados++;
-            
-            // Log de inserción
             fs.appendFileSync(logFile, `INSERCIÓN - Expediente: ${documento.numeroExpediente}, Cliente: ${documento.cliente}, Campos: ${camposOriginales}\n`);
-            
-            // Mostrar progreso cada 100 registros o al final
-            if (stats.procesados % 100 === 0 || stats.procesados === excelData.length) {
-              console.log(chalk.green(`✅ Progreso: ${stats.procesados}/${excelData.length} (${Math.round((stats.procesados/excelData.length)*100)}%) - Insertados: ${stats.insertados}, Actualizados: ${stats.actualizados}, Errores: ${stats.errores}`));
-            }
-          } else {
-            stats.actualizados++;
-            
-            // Log de actualización
-            fs.appendFileSync(logFile, `ACTUALIZACIÓN - Expediente: ${documento.numeroExpediente}, Cliente: ${documento.cliente}, Campos: ${camposOriginales}\n`);
-            
-            // Mostrar progreso cada 100 registros o al final
-            if (stats.procesados % 100 === 0 || stats.procesados === excelData.length) {
-              console.log(chalk.green(`✅ Progreso: ${stats.procesados}/${excelData.length} (${Math.round((stats.procesados/excelData.length)*100)}%) - Insertados: ${stats.insertados}, Actualizados: ${stats.actualizados}, Errores: ${stats.errores}`));
-            }
           }
-        } catch (error) {
-          stats.errores++;
-          stats.expedientesConError.push(`Fila ${posicionGlobal}: ${error.message}`);
-          
-          // Registrar error en log
-          fs.appendFileSync(logFile, `ERROR - Fila ${posicionGlobal}, Expediente ${documento.numeroExpediente}: ${error.message}\n`);
-          
-          console.error(chalk.red(`❌ Error al procesar fila ${posicionGlobal}:`, error.message));
+        }
+        
+        if (stats.procesados % 100 === 0 || stats.procesados === excelData.length) {
+          console.log(chalk.green(`✅ Progreso: ${stats.procesados}/${excelData.length} (${Math.round((stats.procesados/excelData.length)*100)}%) - Insertados: ${stats.insertados}, Actualizados: ${stats.actualizados}, Sin Cambios: ${stats.sinCambios}, Errores: ${stats.errores}`));
         }
       }
     }
     
-    // Mostrar reporte final
     console.log(chalk.blue('\n=== RESUMEN DE IMPORTACIÓN ==='));
     console.log(chalk.green(`Total registros en Excel: ${stats.totalRegistros}`));
     console.log(chalk.green(`Registros procesados: ${stats.procesados}`));
     console.log(chalk.green(`Expedientes insertados: ${stats.insertados}`));
     console.log(chalk.green(`Expedientes actualizados: ${stats.actualizados}`));
+    console.log(chalk.green(`Expedientes sin cambios: ${stats.sinCambios}`));
     console.log(chalk.yellow(`Errores encontrados: ${stats.errores}`));
     
-    // Mostrar errores si hubo
     if (stats.errores > 0) {
       console.log(chalk.yellow('\nExpedientes con error (primeros 10):'));
       stats.expedientesConError.slice(0, 10).forEach(error => {
@@ -505,7 +450,6 @@ async function importarConcentradoAMongoDB(excelPath) {
       }
     }
     
-    // Verificar integridad de los datos importados
     console.log(chalk.blue('\nVerificando integridad de datos...'));
     await verificarIntegridadImportacion(Expediente);
     
@@ -517,7 +461,6 @@ async function importarConcentradoAMongoDB(excelPath) {
     console.error(chalk.red('❌ Error durante la importación:'), error);
     return false;
   } finally {
-    // Cerrar conexión a MongoDB
     await mongoose.connection.close();
     console.log(chalk.blue('\nConexión a MongoDB cerrada.'));
   }
@@ -526,15 +469,11 @@ async function importarConcentradoAMongoDB(excelPath) {
 // Verificar integridad de la importación
 async function verificarIntegridadImportacion(Expediente) {
   try {
-    // 1. Contar documentos con datosConcentrado
     const totalConDatosConcentrado = await Expediente.countDocuments({
       'datosConcentrado': { $exists: true, $ne: {} }
     });
-    
-    // 2. Contar total de documentos
     const totalDocumentos = await Expediente.countDocuments();
     
-    // 3. Verificar documentos con más campos originales
     const maxCampos = await Expediente.aggregate([
       { $match: { 'datosConcentrado': { $exists: true } } },
       { $project: { 
@@ -552,7 +491,6 @@ async function verificarIntegridadImportacion(Expediente) {
       console.log(chalk.green(`Máximo de campos originales en un documento: ${maxCampos[0].camposOriginales} (expediente: ${maxCampos[0].numeroExpediente})`));
     }
     
-    // 4. Verificar campos específicos importantes
     const camposImportantes = ['numero', 'fechaRegistro', 'tipoServicio', 'distanciaRecorrido'];
     
     for (const campo of camposImportantes) {
@@ -563,7 +501,6 @@ async function verificarIntegridadImportacion(Expediente) {
       console.log(chalk.green(`Documentos con campo '${campo}': ${conCampo}/${totalConDatosConcentrado} (${Math.round((conCampo/totalConDatosConcentrado)*100)}%)`));
     }
     
-    // 5. Verificar relación con pedidos
     const conPedidos = await Expediente.countDocuments({
       'pedidos.0': { $exists: true }
     });
@@ -582,8 +519,6 @@ async function verificarIntegridadImportacion(Expediente) {
 }
 
 // Ejecutar importación
-const excelPath = process.argv[2] || path.join(process.env.HOME, 'Desktop', 'concentrado-crk', 'concentrado-general.xlsx');
-
 importarConcentradoAMongoDB(excelPath)
   .then(exito => {
     process.exit(exito ? 0 : 1);
