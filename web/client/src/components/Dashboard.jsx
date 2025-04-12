@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
          PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { BarChart2, TrendingUp, RefreshCw, FileText, Clock, Check, Tag, Users, Activity, ListFilter, LayoutList } from 'lucide-react';
+import { BarChart2, TrendingUp, RefreshCw, FileText, Clock, Check, Tag, Users, Activity } from 'lucide-react';
 import { expedientesService } from '../services/api';
 
-// Dashboard component with client filtering sidebar
+// Dashboard component with client filtering removed and moved to App.jsx
 const Dashboard = ({ selectedClient, activeClienteFilter, onClienteSelect }) => { 
   // State for statistics and loading
   const [loadingStats, setLoadingStats] = useState(true);
   const [errorStats, setErrorStats] = useState(null);
   
-  // State for client list in sidebar
+  // State for client list in dropdown
   const [clientesList, setClientesList] = useState([]);
   const [loadingClientes, setLoadingClientes] = useState(true);
   const [errorClientes, setErrorClientes] = useState(null);
@@ -30,7 +30,7 @@ const Dashboard = ({ selectedClient, activeClienteFilter, onClienteSelect }) => 
     setSelectedClienteStats(selectedClient || 'todos');
   }, [selectedClient]);
 
-  // Fetch unique client list for the sidebar
+  // Fetch unique client list for the dropdown
   useEffect(() => {
     const fetchClientes = async () => {
       setLoadingClientes(true);
@@ -121,13 +121,6 @@ const Dashboard = ({ selectedClient, activeClienteFilter, onClienteSelect }) => 
   
   const ESTADO_COLORS = ['#10B981', '#F59E0B'];
   const chartData = prepareChartData();
-  
-  // Handle client selection in sidebar
-  const handleClienteSelect = (cliente) => {
-    if (onClienteSelect) {
-      onClienteSelect(cliente === 'todos' ? null : cliente);
-    }
-  };
 
   // StatCard Component
   const StatCard = ({ title, value, icon, color }) => (
@@ -145,262 +138,190 @@ const Dashboard = ({ selectedClient, activeClienteFilter, onClienteSelect }) => 
   );
 
   // Loading State
-  if (loadingStats || loadingClientes) {
+  if (loadingStats) {
     return (
-      <div className="flex h-full">
-        {/* Sidebar Placeholder */}
-        <div className="w-48 bg-gray-100 p-4 border-r border-gray-200 animate-pulse flex-shrink-0">
-           <div className="h-6 bg-gray-300 rounded mb-4"></div>
-           {[1, 2, 3].map(i => <div key={i} className="h-8 bg-gray-200 rounded mb-2"></div>)}
+      <div className="bg-white shadow rounded-lg p-6 animate-pulse">
+        <div className="flex justify-between items-center mb-6 border-b pb-4"> 
+          <div className="h-7 bg-gray-300 rounded w-1/3"></div>
+          <div className="flex gap-3 items-center">
+            <div className="h-4 bg-gray-300 rounded w-16"></div>
+            <div className="h-9 bg-gray-300 rounded w-32"></div>
+            <div className="h-9 w-9 bg-gray-200 rounded"></div>
+          </div>
         </div>
-        
-        {/* Main Content Placeholder */}
-        <div className="flex-1 bg-white shadow rounded-lg p-6 overflow-y-auto">
-           <div className="flex justify-between items-center mb-6 border-b pb-4"> 
-             <div className="h-7 bg-gray-300 rounded w-1/3"></div>
-             <div className="flex gap-3 items-center">
-                <div className="h-4 bg-gray-300 rounded w-16"></div>
-                <div className="h-9 bg-gray-300 rounded w-32"></div>
-                <div className="h-9 w-9 bg-gray-200 rounded"></div>
-             </div>
-           </div>
-           
-           {/* Stats placeholders */}
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-             {[1, 2, 3].map(i => <div key={i} className="bg-gray-200 rounded-lg h-28"></div>)}
-           </div>
-           
-           {/* Charts placeholders */}
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             {[1, 2].map(i => <div key={i} className="bg-gray-200 rounded-lg h-64"></div>)}
-           </div>
+         
+        {/* Stats placeholders */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {[1, 2, 3].map(i => <div key={i} className="bg-gray-200 rounded-lg h-28"></div>)}
+        </div>
+         
+        {/* Charts placeholders */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[1, 2].map(i => <div key={i} className="bg-gray-200 rounded-lg h-64"></div>)}
         </div>
       </div>
     );
   }
 
   // Error State
-  if (errorStats || errorClientes) {
+  if (errorStats) {
     return (
-       <div className="flex h-full">
-         {/* Sidebar (show if clients loaded without error) */}
-         {!loadingClientes && !errorClientes && (
-           <div className="w-48 bg-gray-50 p-4 border-r border-gray-200 flex-shrink-0 overflow-y-auto">
-             <h3 className="text-sm font-semibold text-gray-600 mb-3 uppercase flex items-center">
-               <ListFilter size={16} className="mr-2"/> Clientes
-             </h3>
-             
-             {/* Render buttons even if stats failed */}
-             {clientesList.map((cliente) => (
-               <button
-                 key={cliente}
-                 onClick={() => handleClienteSelect(cliente)}
-                 className={`w-full text-left px-3 py-1.5 rounded text-sm mb-1 flex items-center transition-colors duration-150 ${
-                   (activeClienteFilter === cliente || (!activeClienteFilter && cliente === 'todos'))
-                     ? 'bg-blue-100 text-blue-700 font-medium shadow-sm'
-                     : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'
-                 }`}
-               >
-                 <LayoutList size={14} className="mr-2 opacity-60"/> 
-                 {cliente === 'todos' ? 'Mostrar Todos' : cliente}
-               </button>
-             ))}
-           </div>
-         )}
-         
-         {/* Show sidebar error if client loading failed */}
-         {errorClientes && (
-            <div className="w-48 bg-gray-50 p-4 border-r border-gray-200 flex-shrink-0">
-                <h3 className="text-sm font-semibold text-gray-600 mb-3 uppercase flex items-center">
-                   <ListFilter size={16} className="mr-2"/> Clientes
-                </h3>
-                <p className="text-xs text-red-500">{errorClientes}</p>
-            </div>
-         )}
-         
-         {/* Main Content Error */}
-         <div className="flex-1 bg-white shadow rounded-lg p-6 overflow-y-auto">
-           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-             {errorStats || 'Ocurrió un error al cargar las estadísticas.'}
-           </div>
-         </div>
-       </div>
+      <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {errorStats || 'Ocurrió un error al cargar las estadísticas.'}
+        </div>
+      </div>
     );
   }
   
   // Main Render (Data Loaded Successfully)
   return (
-    <div className="flex h-full">
-      {/* Sidebar de Clientes */}
-      <div className="w-48 bg-gray-50 p-4 border-r border-gray-200 flex-shrink-0 overflow-y-auto">
-         <h3 className="text-sm font-semibold text-gray-600 mb-3 uppercase flex items-center">
-           <ListFilter size={16} className="mr-2"/> Clientes
-         </h3>
-         
-         {clientesList.map((cliente) => (
-           <button
-             key={cliente}
-             onClick={() => handleClienteSelect(cliente)}
-             className={`w-full text-left px-3 py-1.5 rounded text-sm mb-1 flex items-center transition-colors duration-150 ${
-               (activeClienteFilter === cliente || (!activeClienteFilter && cliente === 'todos'))
-                 ? 'bg-blue-100 text-blue-700 font-medium shadow-sm'
-                 : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'
-             }`}
-           >
-             <LayoutList size={14} className="mr-2 opacity-60"/> 
-             {cliente === 'todos' ? 'Mostrar Todos' : cliente}
-           </button>
-         ))}
-      </div>
-
-      {/* Contenedor Principal del Dashboard */}
-      <div className="flex-1 bg-white shadow rounded-lg overflow-y-auto"> 
-        {/* Cabecera del Dashboard */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-            <BarChart2 size={20} className="mr-2 text-gray-500" />
-            Estadísticas {selectedClienteStats && selectedClienteStats !== 'todos' ? `(${selectedClienteStats})` : '(Generales)'}
-          </h2>
-          
-          <div className="flex gap-3 items-center">
-             {/* Dropdown para filtrar SOLO las estadísticas */}
-             <span className="text-xs text-gray-500">Filtrar Stats:</span>
-             <select
-               value={selectedClienteStats}
-               onChange={(e) => setSelectedClienteStats(e.target.value)}
-               className="appearance-none px-3 py-1.5 border border-gray-300 bg-white rounded-md shadow-sm text-sm focus:outline-none focus:border-blue-500"
-             >
-               {clientesList.map(cliente => ( 
-                 <option key={cliente} value={cliente}>
-                   {cliente === 'todos' ? 'Todos los clientes' : cliente}
-                 </option>
-               ))}
-             </select>
-             
-            <button 
-              onClick={fetchEstadisticas}
-              className="p-2 bg-gray-100 rounded-md hover:bg-gray-200 text-gray-700"
-              title="Recargar estadísticas"
-              disabled={loadingStats}
-            >
-              {loadingStats ? <RefreshCw size={16} className="animate-spin"/> : <RefreshCw size={16} />}
-            </button>
-          </div>
+    <div className="bg-white shadow rounded-lg overflow-y-auto"> 
+      {/* Cabecera del Dashboard */}
+      <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
+        <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+          <BarChart2 size={20} className="mr-2 text-gray-500" />
+          Estadísticas {selectedClienteStats && selectedClienteStats !== 'todos' ? `(${selectedClienteStats})` : '(Generales)'}
+        </h2>
+        
+        <div className="flex gap-3 items-center">
+          {/* Dropdown para filtrar SOLO las estadísticas */}
+          <span className="text-xs text-gray-500">Filtrar Stats:</span>
+          <select
+            value={selectedClienteStats}
+            onChange={(e) => setSelectedClienteStats(e.target.value)}
+            className="appearance-none px-3 py-1.5 border border-gray-300 bg-white rounded-md shadow-sm text-sm focus:outline-none focus:border-blue-500"
+          >
+            {clientesList.map(cliente => ( 
+              <option key={cliente} value={cliente}>
+                {cliente === 'todos' ? 'Todos los clientes' : cliente}
+              </option>
+            ))}
+          </select>
+            
+          <button 
+            onClick={fetchEstadisticas}
+            className="p-2 bg-gray-100 rounded-md hover:bg-gray-200 text-gray-700"
+            title="Recargar estadísticas"
+            disabled={loadingStats}
+          >
+            {loadingStats ? <RefreshCw size={16} className="animate-spin"/> : <RefreshCw size={16} />}
+          </button>
         </div>
-        
-        {/* Contenido principal del Dashboard */}
-        <div className="p-6">
-          {/* Tarjetas de estadísticas */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <StatCard 
-              title="Total Expedientes" 
-              value={stats.totales.expedientes} 
-              icon={<FileText size={24} />} 
-              color="bg-blue-500" 
-            />
-            <StatCard 
-              title="Facturados" 
-              value={stats.totales.facturados} 
-              icon={<Check size={24} />} 
-              color="bg-green-500" 
-            />
-            <StatCard 
-              title="Pendientes" 
-              value={stats.totales.pendientes} 
-              icon={<Clock size={24} />} 
-              color="bg-yellow-500" 
-            />
+      </div>
+      
+      {/* Contenido principal del Dashboard */}
+      <div className="p-6">
+        {/* Tarjetas de estadísticas */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <StatCard 
+            title="Total Expedientes" 
+            value={stats.totales.expedientes} 
+            icon={<FileText size={24} />} 
+            color="bg-blue-500" 
+          />
+          <StatCard 
+            title="Facturados" 
+            value={stats.totales.facturados} 
+            icon={<Check size={24} />} 
+            color="bg-green-500" 
+          />
+          <StatCard 
+            title="Pendientes" 
+            value={stats.totales.pendientes} 
+            icon={<Clock size={24} />} 
+            color="bg-yellow-500" 
+          />
+        </div>
+      
+        {/* Gráficos */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Gráfico de Tipos de Servicio */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="text-sm font-medium text-gray-500 mb-4 flex items-center">
+              <Tag size={16} className="mr-2" /> TIPOS DE SERVICIO
+            </h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData.tiposServicioData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="tipo" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="cantidad" fill="#3B82F6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         
-          {/* Gráficos */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Gráfico de Tipos de Servicio */}
+          {/* Gráfico de Estado */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="text-sm font-medium text-gray-500 mb-4 flex items-center">
+              <Activity size={16} className="mr-2" /> ESTADO DE EXPEDIENTES
+            </h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie 
+                    data={chartData.estadoData} 
+                    cx="50%" 
+                    cy="50%" 
+                    labelLine={false} 
+                    outerRadius={80} 
+                    fill="#8884d8" 
+                    dataKey="value" 
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {chartData.estadoData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={ESTADO_COLORS[index % ESTADO_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        
+          {/* Gráfico de Clientes (Only shown if 'todos' is selected in dropdown) */}
+          {(!selectedClienteStats || selectedClienteStats === 'todos') && stats.clientes.length > 0 && (
             <div className="bg-gray-50 rounded-lg p-4">
               <h3 className="text-sm font-medium text-gray-500 mb-4 flex items-center">
-                <Tag size={16} className="mr-2" /> TIPOS DE SERVICIO
+                <Users size={16} className="mr-2" /> EXPEDIENTES POR CLIENTE (General)
               </h3>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData.tiposServicioData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <BarChart data={chartData.clientesData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="tipo" />
+                    <XAxis dataKey="nombre" />
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="cantidad" fill="#3B82F6" />
+                    <Bar dataKey="facturados" name="Facturados" fill="#10B981" />
+                    <Bar dataKey="pendientes" name="Pendientes" fill="#F59E0B" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
-          
-            {/* Gráfico de Estado */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-500 mb-4 flex items-center">
-                <Activity size={16} className="mr-2" /> ESTADO DE EXPEDIENTES
-              </h3>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie 
-                      data={chartData.estadoData} 
-                      cx="50%" 
-                      cy="50%" 
-                      labelLine={false} 
-                      outerRadius={80} 
-                      fill="#8884d8" 
-                      dataKey="value" 
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {chartData.estadoData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={ESTADO_COLORS[index % ESTADO_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          
-            {/* Gráfico de Clientes (Only shown if 'todos' is selected in dropdown) */}
-            {(!selectedClienteStats || selectedClienteStats === 'todos') && stats.clientes.length > 0 && (
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-sm font-medium text-gray-500 mb-4 flex items-center">
-                  <Users size={16} className="mr-2" /> EXPEDIENTES POR CLIENTE (General)
-                </h3>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData.clientesData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="nombre" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="facturados" name="Facturados" fill="#10B981" />
-                      <Bar dataKey="pendientes" name="Pendientes" fill="#F59E0B" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            )}
-          
-            {/* Gráfico de Tendencia (Simulado) */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-500 mb-4 flex items-center">
-                <TrendingUp size={16} className="mr-2" /> TENDENCIA DE EXPEDIENTES
-              </h3>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData.tendenciaData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="mes" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="expedientes" stroke="#3B82F6" activeDot={{ r: 8 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+          )}
+        
+          {/* Gráfico de Tendencia (Simulado) */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="text-sm font-medium text-gray-500 mb-4 flex items-center">
+              <TrendingUp size={16} className="mr-2" /> TENDENCIA DE EXPEDIENTES
+            </h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData.tendenciaData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="mes" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="expedientes" stroke="#3B82F6" activeDot={{ r: 8 }} />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ExpedientesTable from './components/ExpedientesTable';
 import ExpedienteDetail from './components/ExpedienteDetail';
 import Dashboard from './components/Dashboard';
-import { FileText, BarChart2, Search, Menu, X, LogOut, User, Bell, Home } from 'lucide-react';
+import { FileText, BarChart2, Search, Menu, X, LogOut, User, Bell, Users, LayoutList } from 'lucide-react';
+import { expedientesService } from './services/api';
 
 const App = () => {
   // Estado para gestionar la vista activa
@@ -16,6 +17,30 @@ const App = () => {
   
   // Estado para el filtro de cliente (aplicado a la tabla)
   const [clienteFilter, setClienteFilter] = useState(null); // Renamed from selectedClient
+  
+  // Estado para la lista de clientes en el sidebar
+  const [clientesList, setClientesList] = useState([]);
+  const [loadingClientes, setLoadingClientes] = useState(true);
+  
+  // Cargar la lista de clientes al iniciar
+  useEffect(() => {
+    const fetchClientes = async () => {
+      setLoadingClientes(true);
+      try {
+        const response = await expedientesService.getClientes();
+        if (Array.isArray(response)) {
+          const validClients = response.filter(c => c).sort();
+          setClientesList(validClients);
+        }
+      } catch (err) {
+        console.error('Error al cargar la lista de clientes:', err);
+      } finally {
+        setLoadingClientes(false);
+      }
+    };
+    
+    fetchClientes();
+  }, []);
   
   // Función para manejar la selección de un expediente
   const handleExpedienteSelect = (id) => {
@@ -174,6 +199,45 @@ const App = () => {
                 Dashboard
               </div>
             </button>
+            
+            {/* Sección de clientes para móvil */}
+            <div className="pt-2 mt-2 border-t border-gray-200">
+              <h3 className="pl-3 pr-4 py-1 text-sm font-medium text-gray-500 uppercase">
+                <div className="flex items-center">
+                  <Users size={16} className="mr-2" />
+                  Clientes
+                </div>
+              </h3>
+              
+              <button
+                onClick={() => handleClienteFilterChange(null)}
+                className={`${
+                  !clienteFilter
+                    ? 'bg-blue-50 border-blue-500 text-blue-700'
+                    : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'
+                } block pl-8 pr-4 py-2 border-l-4 text-sm font-medium w-full text-left`}
+              >
+                Mostrar Todos
+              </button>
+              
+              {loadingClientes ? (
+                <div className="pl-8 pr-4 py-2 text-sm text-gray-500">Cargando clientes...</div>
+              ) : (
+                clientesList.map((cliente) => (
+                  <button
+                    key={cliente}
+                    onClick={() => handleClienteFilterChange(cliente)}
+                    className={`${
+                      clienteFilter === cliente
+                        ? 'bg-blue-50 border-blue-500 text-blue-700'
+                        : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'
+                    } block pl-8 pr-4 py-2 border-l-4 text-sm font-medium w-full text-left`}
+                  >
+                    {cliente}
+                  </button>
+                ))
+              )}
+            </div>
           </div>
           
           <div className="pt-4 pb-3 border-t border-gray-200">
@@ -237,8 +301,45 @@ const App = () => {
                   Dashboard
                 </button>
               </div>
-              {/* Sección de Clientes eliminada del sidebar principal */}
-              {/* La lógica de filtro de clientes ahora está dentro del Dashboard */}
+              
+              {/* Módulo de clientes reubicado al sidebar */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-600 mb-3 px-3 uppercase flex items-center">
+                  <Users size={16} className="mr-2"/> Clientes
+                </h3>
+                <div className="space-y-1">
+                  <button
+                    onClick={() => handleClienteFilterChange(null)}
+                    className={`w-full text-left px-3 py-1.5 rounded text-sm mb-1 flex items-center transition-colors duration-150 ${
+                      !clienteFilter
+                        ? 'bg-blue-100 text-blue-700 font-medium shadow-sm'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                  >
+                    <LayoutList size={14} className="mr-2 opacity-60"/>
+                    Mostrar Todos
+                  </button>
+                  
+                  {loadingClientes ? (
+                    <div className="px-3 py-2 text-sm text-gray-500">Cargando clientes...</div>
+                  ) : (
+                    clientesList.map((cliente) => (
+                      <button
+                        key={cliente}
+                        onClick={() => handleClienteFilterChange(cliente)}
+                        className={`w-full text-left px-3 py-1.5 rounded text-sm mb-1 flex items-center transition-colors duration-150 ${
+                          clienteFilter === cliente
+                            ? 'bg-blue-100 text-blue-700 font-medium shadow-sm'
+                            : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                        }`}
+                      >
+                        <LayoutList size={14} className="mr-2 opacity-60"/>
+                        {cliente}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </div>
           
